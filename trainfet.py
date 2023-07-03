@@ -17,7 +17,7 @@ def __setup_logging(to_file):
 def train_fewnerd():
     __setup_logging(True)
 
-    fewnerd_type_vocab_file = os.path.join(config.DATA_DIR, 'fet/alifet/fewnerd/fewnerd_type_vocab.txt')
+    fewnerd_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/fewnerd/fewnerd_type_vocab.txt')
     load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base_best.pth')
     save_model_file = None
     bert_model_str = config.BERT_BASE_MODEL_PATH
@@ -35,9 +35,9 @@ def train_fewnerd():
 
     for i in range(5):
         fewnerd_tdt_data_files['train'] = os.path.join(
-            config.DATA_DIR, f'fet/alifet/fewnerd/fewnerd_train_fewshot5_{i}.json')
+            config.FET_DIR, f'alifet/fewnerd/fewnerd_train_fewshot5_{i}.json')
         fewnerd_tdt_data_files['dev'] = os.path.join(
-            config.DATA_DIR, f'fet/alifet/fewnerd/fewnerd_dev_fewshot5_{i}.json')
+            config.FET_DIR, f'alifet/fewnerd/fewnerd_dev_fewshot5_{i}.json')
         save_model_file = os.path.join(config.WORK_DIR, f'fet_models/tt_mlm_nw_bert_base_fewnerd_i{i}.pth')
         trainer = fettask.FETModelTrainer(
             tc, fewnerd_type_vocab_file, dataset_name, fewnerd_tdt_data_files, load_model_file,

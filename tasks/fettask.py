@@ -262,3 +262,76 @@ def evaluate_fet_model(
     p, r, f1 = utils.macro_f1_gptups(gp_pairs)
     mif1 = utils.micro_f1(gp_pairs)
     return sacc, f1, mif1, sum(losses), len(gp_pairs), results
+
+
+def tt_examples_iter(tokenizer, data_file, max_seq_len):
+    for x in datautils.json_obj_iter(data_file):
+        bert_tok_id_seq, _ = dataloadutils.uf_example_to_qic_bert_token_id_seq(tokenizer, x, max_seq_len)
+
+        mask_idx = bert_tok_id_seq.index(tokenizer.mask_token_id)
+        type_labels = x['y_str']
+        type_words = [utils.onto_type_to_word(t) for t in type_labels]
+        yield {
+            'token_id_seq': bert_tok_id_seq,
+            'mask_idx': mask_idx,
+            'labels': type_words,
+            'raw': x
+        }
+
+
+class FETPredictor:
+    def __init__(
+            self, device, type_vocab_file, dataset_name, load_model_file, bert_model_str,
+            max_seq_len=128, batch_size=64, single_path=False):
+        self.device = device
+        raw_type_vocab, type_id_dict = datautils.load_vocab_file(type_vocab_file)
+        self.dataset_name = dataset_name
+        if dataset_name == 'onto':
+            self.word_to_type_dict = utils.get_onto_word_to_type_dict(raw_type_vocab)
+            self.type_to_word_func = utils.onto_type_to_word
+        elif dataset_name == 'bbn':
+            self.word_to_type_dict = utils.get_bbn_word_to_type_dict(raw_type_vocab, True)
+            self.type_to_word_func = utils.bbn_type_to_word
+        elif dataset_name == 'fewnerd':
+            self.word_to_type_dict = utils.get_fewnerd_word_to_type_dict(raw_type_vocab)
+            self.type_to_word_func = utils.fewnerd_type_to_word
+        else:
+            self.word_to_type_dict = None
+            self.type_to_word_func = None
+
+        self.word_type_vocab = list(self.word_to_type_dict.keys())
+        self.word_type_id_dict = {wt: i for i, wt in enumerate(self.word_type_vocab)}
+        self.tokenizer = BertTokenizer.from_pretrained(bert_model_str)
+        self.pred_infer = DirectSingleTypeInfer() if single_path else None
+
+        print('load_model_file={}'.format(load_model_file))
+        self.model = TypeTokenBertET.from_trained(load_model_file, bert_model_str)
+        self.model.to(self.device)
+        self.model.init_type_hiddens(self.tokenizer, self.word_type_vocab)
+        self.model.eval()
+
+        self.max_seq_len = max_seq_len
+        self.batch_size = batch_size
+
+    def evaluate(self, data_file, data_format='ali'):
+        print('data_file={}'.format(data_file))
+        print('loading examples ...')
+        if data_format == 'ali':
+            example_loader = exampleload.AliToSpanMExampleLoader(data_file)
+            examples = list(spanm_tt_examples_iter(
+                self.tokenizer, example_loader, self.max_seq_len, self.type_to_word_func))
+            label_key = 'labels'
+        else:
+            examples = list(tt_examples_iter(self.tokenizer, data_file, self.max_seq_len))
+            label_key = 'y_str'
+        print('done')
+
+        batch_collect_fn = partial(
+            bert_batch_collect, self.device, self.word_type_id_dict, self.tokenizer.pad_token_id)
+        batch_loader = batchload.IterExampleBatchLoader(
+            examples, self.batch_size, n_iter=1, collect_fn=batch_collect_fn)
+        sacct, f1t, mif1t, dev_losst, _, pred_results = evaluate_fet_model(
+            self.model, batch_loader, self.word_type_vocab, self.word_to_type_dict,
+            label_key=label_key, pred_infer=self.pred_infer)
+        print('acc={:.4f} maf1={:.4f} mif1={:.4f}'.format(sacct, f1t, mif1t))
+        return sacct, f1t, mif1t
