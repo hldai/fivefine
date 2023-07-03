@@ -427,7 +427,6 @@ class UFSTTrainer:
 
         loss_obj_strong = PartialBCELoss(mean_loss=False)
         loss_obj_weak = PartialBCELoss(mean_loss=False)
-        mlm_loss_fct = torch.nn.CrossEntropyLoss()  # -100 index = padding token
 
         self.optimizer = bertutils.get_bert_adam_optim(
             list(self.model.named_parameters()), learning_rate=tc.lr, w_decay=tc.w_decay)
