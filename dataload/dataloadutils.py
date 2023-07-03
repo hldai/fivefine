@@ -147,3 +147,23 @@ def uf_example_to_qic_bert_token_id_seq(tokenizer, example, max_seq_len, gen_nei
         return full_token_id_seq, ln_token_id_seq, rn_token_id_seq, left_token_id, right_token_id, full_token_type_ids
 
     return tokenizer.convert_tokens_to_ids(full_token_seq), full_token_type_ids
+
+
+def spanm_example_to_qic_bert_token_id_seq(tokenizer, example, max_seq_len, gen_neighbor=False):
+    text = example['text']
+    bp, ep = example['span']
+    mstr = text[bp:ep]
+    left_cxt = text[:bp].strip()
+    right_cxt = text[ep:].strip()
+
+    x = {'mention_span': mstr}
+    if not left_cxt:
+        x['left_context_token'] = []
+    else:
+        x['left_context_token'] = left_cxt.split(' ')
+    if not right_cxt:
+        x['right_context_token'] = []
+    else:
+        x['right_context_token'] = right_cxt.split(' ')
+
+    return uf_example_to_qic_bert_token_id_seq(tokenizer, x, max_seq_len, gen_neighbor)

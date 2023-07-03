@@ -2,6 +2,7 @@ import random
 import numpy as np
 from torch.utils.data import IterableDataset
 from dataload import dataloadutils
+from utils import utils
 
 
 class DirectExampleLoader:
@@ -102,7 +103,6 @@ def load_bertet_examples(tokenizer, data_file, max_seq_len):
         tok_type_ids = None
         bert_tok_id_seq, tok_type_ids = dataloadutils.uf_example_to_qic_bert_token_id_seq(
             tokenizer, x, max_seq_len)
-        # print(tokenizer.convert_ids_to_tokens(bert_tok_id_seq))
         mask_idx = bert_tok_id_seq.index(tokenizer.mask_token_id)
         examples.append({
             'token_id_seq': bert_tok_id_seq,
@@ -110,7 +110,6 @@ def load_bertet_examples(tokenizer, data_file, max_seq_len):
             'mask_idx': mask_idx,
             'labels': x['y_str']
         })
-        # break
     return examples
 
 
@@ -148,9 +147,7 @@ class UFBertSpanMExampleLoader:
             if lobj is None:
                 continue
 
-            # dataloadutils.spanm_mention_to_sm_bert(self.bert_tokenizer, mention, self.bert_max_seq_len)
             mask_idx = None
-            bert_tok_id_seq = None
             mid = mention['id']
             text = mention['text']
             mspan = mention['span']
@@ -216,3 +213,52 @@ class MultiSrcExampleLoader:
                 break
 
             yield example
+
+
+def get_fine_types(labels):
+    types = set()
+    n_labels = len(labels)
+    for i in range(n_labels):
+        cur_label = labels[i]
+        flg = True
+        for j in range(n_labels):
+            if i == j:
+                continue
+            if labels[j].startswith(cur_label):
+                flg = False
+                break
+        if flg:
+            types.add(cur_label)
+    return list(types)
+
+
+class AliToSpanMExampleLoader:
+    def __init__(self, data_file, remove_other=False, single_path=False):
+        self.data_file = data_file
+        self.remove_other = remove_other
+        self.single_path = single_path
+
+    def __iter__(self):
+        return self.next_example()
+
+    def next_example(self):
+        from utils import datautils
+        for i, x in enumerate(datautils.json_obj_iter(self.data_file)):
+            lcxt, rcxt = x['left_context_text'], x['right_context_text']
+            mstr = x['word']
+            labels = x['y_category']
+            if self.single_path:
+                labels = utils.get_fine_types(labels)
+            if self.remove_other and len(labels) > 1 and '/other' in labels:
+                labels = [label for label in labels if label != '/other']
+
+            text = lcxt
+            pbeg_ch = 0
+            if len(text) > 0:
+                pbeg_ch = len(text) + 1
+                text += ' ' + mstr + ' ' + rcxt
+            else:
+                text = mstr + ' ' + rcxt
+            pend_ch = pbeg_ch + len(mstr)
+
+            yield {'text': text, 'span': (pbeg_ch, pend_ch), 'mstr': mstr, 'labels': labels}
