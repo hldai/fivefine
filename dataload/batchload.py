@@ -1,3 +1,25 @@
+from models import modelutils
+
+
+def bert_batch_collect(device, type_id_dict, pad_token_id, examples):
+    input_ids = [x['token_id_seq'] for x in examples]
+    mask_idxs = [x['mask_idx'] for x in examples]
+    token_type_ids_list = [x['token_type_ids'] for x in examples]
+    input_ids, attn_mask = modelutils.pad_id_seqs(input_ids, device, pad_token_id)
+    token_type_ids = None
+    if len(token_type_ids_list) > 0 and token_type_ids_list[0] is not None:
+        token_type_ids = modelutils.pad_seq_to_len(token_type_ids_list, input_ids.size()[1], device)
+    labels_list = [x['labels'] for x in examples]
+    type_ids_list = [[type_id_dict[t] for t in labels] for labels in labels_list]
+    return {
+        'input_ids': input_ids,
+        'attn_mask': attn_mask,
+        'token_type_ids': token_type_ids,
+        'mask_idxs': mask_idxs,
+        'type_ids_list': type_ids_list,
+        'labels_list': labels_list
+    }
+
 
 def train_batch_list_iter(train_batch_loader, gacc_step):
     batch_list = list()

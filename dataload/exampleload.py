@@ -1,6 +1,25 @@
+import random
 import numpy as np
 from torch.utils.data import IterableDataset
 from dataload import dataloadutils
+
+
+class DirectExampleLoader:
+    def __init__(self, examples, loop=True):
+        self.examples = examples
+        self.loop = loop
+
+    def __iter__(self):
+        return self.next_example()
+
+    def next_example(self):
+        continue_iter = True
+        while continue_iter:
+            random.shuffle(self.examples)
+            for x in self.examples:
+                x['src'] = 'DR'
+                yield x
+            continue_iter = self.loop
 
 
 class UFBertExampleLoader:
@@ -173,4 +192,27 @@ class MultiSrcDataset(IterableDataset):
                 example = next(example_iters[idx])
             except StopIteration:
                 return None
+            yield example
+
+
+class MultiSrcExampleLoader:
+    def __init__(self, example_loaders, weights):
+        self.example_loaders = example_loaders
+        self.weights = weights
+        weight_sum = sum(self.weights)
+        self.p = [w / weight_sum for w in self.weights]
+
+    def __iter__(self):
+        return self.next_example()
+
+    def next_example(self):
+        n_srcs = len(self.example_loaders)
+        example_iters = [iter(loader) for loader in self.example_loaders]
+        while True:
+            idx = np.random.choice(n_srcs, p=self.p)
+            try:
+                example = next(example_iters[idx])
+            except StopIteration:
+                break
+
             yield example

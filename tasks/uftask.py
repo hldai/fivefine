@@ -4,15 +4,15 @@ import random
 from functools import partial
 import torch
 from torch.utils.data import DataLoader
-import numpy as np
 from transformers import BertTokenizer
 from torch.nn import CrossEntropyLoss
 from utils import datautils, bertutils
 from models.bertet import TypeTokenBertET
 from models import modelutils
 from dataload import exampleload, dataloadutils, batchload
-from dataload.batchload import train_batch_list_iter
+from dataload.batchload import train_batch_list_iter, bert_batch_collect
 from dataload.exampleload import load_bertet_examples
+from tasks.uftaskutils import eval_uf
 
 
 class TrainConfig:
@@ -183,26 +183,6 @@ class DataLoaderCollateFn:
             batch['right_token_ids'] = right_token_ids
 
         return batch
-
-
-def bert_batch_collect(device, type_id_dict, pad_token_id, examples):
-    input_ids = [x['token_id_seq'] for x in examples]
-    mask_idxs = [x['mask_idx'] for x in examples]
-    token_type_ids_list = [x['token_type_ids'] for x in examples]
-    input_ids, attn_mask = modelutils.pad_id_seqs(input_ids, device, pad_token_id)
-    token_type_ids = None
-    if len(token_type_ids_list) > 0 and token_type_ids_list[0] is not None:
-        token_type_ids = modelutils.pad_seq_to_len(token_type_ids_list, input_ids.size()[1], device)
-    labels_list = [x['labels'] for x in examples]
-    type_ids_list = [[type_id_dict[t] for t in labels] for labels in labels_list]
-    return {
-        'input_ids': input_ids,
-        'attn_mask': attn_mask,
-        'token_type_ids': token_type_ids,
-        'mask_idxs': mask_idxs,
-        'type_ids_list': type_ids_list,
-        'labels_list': labels_list
-    }
 
 
 class WeakUFModelTrainer:
@@ -494,38 +474,3 @@ class TypeTokenModelTrainer:
                 if f1 > best_dev_f1:
                     best_dev_f1 = f1
                 self.model.train()
-
-
-def eval_uf(model, type_vocab, batch_iter, token_type=False, show_progress=False):
-    from utils import utils
-
-    results = list()
-    gp_tups = list()
-    logits_list, gold_tids_list = list(), list()
-    for batch in batch_iter:
-        with torch.no_grad():
-            input_ids = batch['input_ids']
-            attn_mask = batch['attn_mask']
-            mask_idxs = batch['mask_idxs']
-            token_type_ids = None
-            if token_type:
-                token_type_ids = batch['token_type_ids']
-            logits_batch, _ = model(input_ids, attn_mask, mask_idxs, token_type_ids=token_type_ids)
-            # logits_batch = model(token_id_seqs_tensor, attn_mask)
-        logits_batch = logits_batch.data.cpu().numpy()
-
-        gold_type_ids_list = batch['type_ids_list']
-        for i, logits in enumerate(logits_batch):
-            idxs = np.squeeze(np.argwhere(logits > 0), axis=1)
-            if len(idxs) == 0:
-                idxs = [np.argmax(logits)]
-            logits_list.append(logits)
-
-            gold_tids_list.append(gold_type_ids_list[i])
-            gp_tups.append((gold_type_ids_list[i], idxs))
-            r = {'types': [type_vocab[idx] for idx in idxs]}
-            results.append(r)
-            if show_progress and len(results) % 1000 == 0:
-                print(len(results))
-    p, r, f1 = utils.macro_f1_gptups(gp_tups)
-    return p, r, f1, results

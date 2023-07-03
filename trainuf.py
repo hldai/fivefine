@@ -60,8 +60,7 @@ def train_uf_st():
         teacher_model_str=config.BERT_BASE_MODEL_PATH,
         n_steps=200000,
         w_decay=0.1,
-        src_load_weights=(0.4, 0.2, 0.2, 0.2),
-        n_skip_steps=0
+        src_load_weights=(0.4, 0.2, 0.2, 0.2)
     )
 
     trainer = ufsttask.UFSTTrainer(

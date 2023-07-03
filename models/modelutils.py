@@ -36,3 +36,13 @@ def onehot_encode_batch(class_ids_list, n_classes):
         for cid in class_ids:
             tmp[i][cid] = 1.0
     return tmp
+
+
+def save_model(model, model_file, is_parallel):
+    import logging
+
+    if is_parallel:
+        torch.save(model.module.state_dict(), model_file)
+    else:
+        torch.save(model.state_dict(), model_file)
+    logging.info('model saved to {}'.format(model_file))
