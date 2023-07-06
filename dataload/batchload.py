@@ -1,3 +1,4 @@
+import random
 from models import modelutils
 
 
@@ -66,3 +67,44 @@ class IterExampleBatchLoader:
                     yield batch_examples
                 batch_examples = list()
             it += 1
+
+
+class ExampleBatchLoader:
+    def __init__(self, examples, batch_size, n_iter=-1, n_steps=-1, collect_fn=None, shuffle=False):
+        self.examples = examples
+        self.batch_size = batch_size
+        self.n_iter = n_iter
+        self.n_steps = n_steps
+        self.collect_fn = collect_fn
+        self.shuffle = shuffle
+
+    def __iter__(self):
+        return self.next_batch()
+
+    def next_batch(self):
+        it = 0
+        step = 0
+        batch_examples = list()
+        while it != self.n_iter and step != self.n_steps:
+            for i, example in enumerate(self.examples):
+                batch_examples.append(example)
+                if len(batch_examples) >= self.batch_size:
+                    if self.collect_fn is not None:
+                        yield self.collect_fn(batch_examples)
+                    else:
+                        yield batch_examples
+                    batch_examples = list()
+
+                    step += 1
+                    if step == self.n_steps:
+                        break
+            if len(batch_examples) > 0:
+                if self.collect_fn is not None:
+                    yield self.collect_fn(batch_examples)
+                else:
+                    yield batch_examples
+                batch_examples = list()
+            it += 1
+
+            if self.shuffle:
+                random.shuffle(self.examples)

@@ -335,3 +335,113 @@ class FETPredictor:
             label_key=label_key, pred_infer=self.pred_infer)
         print('acc={:.4f} maf1={:.4f} mif1={:.4f}'.format(sacct, f1t, mif1t))
         return sacct, f1t, mif1t
+
+
+def load_tt_examples(tokenizer, data_file, max_seq_len):
+    examples = list(tt_examples_iter(tokenizer, data_file, max_seq_len))
+    return examples
+
+
+class ManualOntoTrainer:
+    def __init__(
+            self, tc: TrainConfig, type_vocab_file,
+            tdt_files, load_model_file, bert_model_str,
+            output_results_file=None,
+            save_model_file=None
+    ):
+        self.tc = tc
+        self.device = tc.device
+        self.tdt_files = tdt_files
+        raw_type_vocab, type_id_dict = datautils.load_vocab_file(type_vocab_file)
+        self.word_to_type_dict = utils.get_onto_word_to_type_dict(raw_type_vocab)
+        self.word_type_vocab = list(self.word_to_type_dict.keys())
+        self.word_type_id_dict = {wt: i for i, wt in enumerate(self.word_type_vocab)}
+        # assert len(self.word_type_vocab) == len(raw_type_vocab)
+        self.n_types = len(self.word_type_vocab)
+
+        self.tokenizer = BertTokenizer.from_pretrained(bert_model_str)
+
+        if load_model_file is None:
+            self.model = TypeTokenBertET(bert_model_str, bert_model_str)
+        else:
+            logging.info('load_model_file={}'.format(load_model_file))
+            self.model = TypeTokenBertET.from_trained(load_model_file, bert_model_str)
+        self.model.to(self.device)
+        self.model.init_type_hiddens(self.tokenizer, self.word_type_vocab)
+        # self.model.eval()
+        self.output_results_file = output_results_file
+        self.save_model_file = save_model_file
+
+    def run(self):
+        self.model.train()
+        logging.info(' '.join(['{}={}'.format(k, v) for k, v in vars(self.tc).items()]))
+        tc = self.tc
+        device = self.tc.device
+        loss_obj = torch.nn.BCEWithLogitsLoss()
+        optimizer = bertutils.get_bert_adam_optim(
+            list(self.model.named_parameters()), learning_rate=tc.lr, w_decay=tc.w_decay)
+
+        batch_collect_fn = partial(
+            bert_batch_collect, self.device, self.word_type_id_dict, self.tokenizer.pad_token_id)
+
+        logging.info('train_file={}'.format(self.tdt_files['train']))
+        train_examples = load_tt_examples(self.tokenizer, self.tdt_files['train'], tc.max_seq_len)
+        train_batch_loader = batchload.ExampleBatchLoader(
+            train_examples, tc.batch_size, n_steps=tc.n_steps, collect_fn=batch_collect_fn, shuffle=True
+        )
+
+        logging.info('dev_file={}'.format(self.tdt_files['dev']))
+        dev_examples = load_tt_examples(self.tokenizer, self.tdt_files['dev'], tc.max_seq_len)
+        dev_batch_loader = batchload.IterExampleBatchLoader(
+            dev_examples, tc.batch_size, n_iter=1, collect_fn=batch_collect_fn)
+
+        logging.info('test_file={}'.format(self.tdt_files['test']))
+        test_file = self.tdt_files.get('test')
+        test_batch_loader = None
+        if test_file is not None:
+            test_examples = load_tt_examples(self.tokenizer, self.tdt_files['test'], tc.max_seq_len)
+            test_batch_loader = batchload.IterExampleBatchLoader(
+                test_examples, tc.batch_size, n_iter=1, collect_fn=batch_collect_fn)
+
+        step = 0
+        losses = list()
+        best_dev_f1 = 0
+        best_result = None
+        for batch in train_batch_loader:
+            input_ids = batch['input_ids']
+            attn_mask = batch['attn_mask']
+            type_ids_list = batch['type_ids_list']
+            mask_idxs = batch['mask_idxs']
+
+            logits, _ = self.model(input_ids, attn_mask, mask_idxs)
+            targets = modelutils.onehot_encode_batch(type_ids_list, self.n_types)
+            targets = torch.tensor(targets, dtype=torch.float32, device=device)
+            loss = loss_obj(logits, targets)
+
+            losses.append(loss.data.cpu().numpy())
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            step += 1
+            # print(step)
+            if step % 10 == 0:
+                self.model.eval()
+                loss_val = sum(losses)
+                losses = list()
+                sacc, f1, mif1, _, _, _ = evaluate_fet_model(
+                    self.model, dev_batch_loader, self.word_type_vocab, self.word_to_type_dict)
+                print('i={} l={:.4f} acc={:.4f} maf1={:.4f} mif1={:.4f}'.format(
+                    step, loss_val, sacc, f1, mif1))
+                if f1 > best_dev_f1 and sacc > 0.7 and test_batch_loader is not None:
+                    sacct, f1t, mif1t, _, npred, results = evaluate_fet_model(
+                        self.model, test_batch_loader, self.word_type_vocab, self.word_to_type_dict)
+                    print('TEST {} acc={:.4f} maf1={:.4f} mif1={:.4f}'.format(npred, sacct, f1t, mif1t))
+                    best_result = (sacct, f1t, mif1t)
+                    if self.save_model_file is not None:
+                        modelutils.save_model(self.model, self.save_model_file, False)
+                if f1 > best_dev_f1:
+                    best_dev_f1 = f1
+                self.model.train()
+        return best_result

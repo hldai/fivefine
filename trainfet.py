@@ -45,6 +45,31 @@ def train_fewnerd():
         trainer.run()
 
 
+def train_manual_onto():
+    print('train_manual_onto')
+    onto_type_vocab_file = os.path.join(config.FET_DIR, 'ontonotes/onto_ontology.txt')
+    manual_onto_data_files = {
+        'train': os.path.join(config.FET_DIR, 'ontonotes/onto_anno_full_10.json'),
+        'dev': os.path.join(config.FET_DIR, 'ontonotes/g_dev_dev_5.json'),
+        'test': os.path.join(config.FET_DIR, 'ontonotes/g_test.json'),
+    }
+    load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base-[best].pth')
+    # save_model_file = os.path.join(config.WORK_DIR, 'fet_models/tt_mlm_nw_qic_base_manonto.pth')
+    save_model_file = None
+    tc = fettask.TrainConfig(
+        device=device,
+        batch_size=64,
+        w_decay=0.01,
+        lr=3e-5,
+        n_steps=1200
+    )
+    trainer = fettask.ManualOntoTrainer(
+        tc, onto_type_vocab_file, manual_onto_data_files, load_model_file, config.BERT_BASE_MODEL_PATH,
+        save_model_file=save_model_file
+    )
+    trainer.run()
+
+
 if __name__ == '__main__':
     utils.set_all_random_seed(7771)
     str_today = datetime.date.today().strftime('%y-%m-%d')
@@ -56,3 +81,5 @@ if __name__ == '__main__':
 
     if args.idx == 0:
         train_fewnerd()
+    elif args.idx == 1:
+        train_manual_onto()
