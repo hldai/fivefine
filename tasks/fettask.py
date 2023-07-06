@@ -2,6 +2,7 @@ import logging
 from functools import partial
 import torch
 import numpy as np
+from transformers.optimization import get_linear_schedule_with_warmup
 from transformers import BertTokenizer
 from utils import utils, datautils, bertutils
 from dataload import exampleload, batchload, dataloadutils
@@ -11,7 +12,7 @@ from models.bertet import TypeTokenBertET
 
 class TrainConfig:
     def __init__(self, device, lr=3e-5, w_decay=0.01, batch_size=32, n_steps=2000, max_seq_len=128,
-                 eval_interval=100, single_path_train=False, patience=500):
+                 eval_interval=100, single_path_train=False, patience=500, lr_schedule=False):
         self.device = device
         self.lr = lr
         self.batch_size = batch_size
@@ -21,6 +22,7 @@ class TrainConfig:
         self.n_steps = n_steps
         self.patience = patience
         self.eval_interval = eval_interval
+        self.lr_schedule = lr_schedule
 
 
 def bert_batch_collect(device, type_id_dict, pad_token_id, examples):
@@ -377,9 +379,6 @@ class ManualOntoTrainer:
         logging.info(' '.join(['{}={}'.format(k, v) for k, v in vars(self.tc).items()]))
         tc = self.tc
         device = self.tc.device
-        loss_obj = torch.nn.BCEWithLogitsLoss()
-        optimizer = bertutils.get_bert_adam_optim(
-            list(self.model.named_parameters()), learning_rate=tc.lr, w_decay=tc.w_decay)
 
         batch_collect_fn = partial(
             bert_batch_collect, self.device, self.word_type_id_dict, self.tokenizer.pad_token_id)
@@ -403,6 +402,14 @@ class ManualOntoTrainer:
             test_batch_loader = batchload.IterExampleBatchLoader(
                 test_examples, tc.batch_size, n_iter=1, collect_fn=batch_collect_fn)
 
+        loss_obj = torch.nn.BCEWithLogitsLoss()
+        optimizer = bertutils.get_bert_adam_optim(
+            list(self.model.named_parameters()), learning_rate=tc.lr, w_decay=tc.w_decay)
+
+        lr_scheduler = None
+        if tc.lr_schedule:
+            lr_scheduler = get_linear_schedule_with_warmup(optimizer, int(tc.n_steps * 0.1), tc.n_steps)
+
         step = 0
         losses = list()
         best_dev_f1 = 0
@@ -423,6 +430,8 @@ class ManualOntoTrainer:
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            if lr_scheduler is not None:
+                lr_scheduler.step()
 
             step += 1
             # print(step)

@@ -61,7 +61,8 @@ def train_manual_onto():
         batch_size=64,
         w_decay=0.01,
         lr=3e-5,
-        n_steps=1200
+        n_steps=1200,
+        lr_schedule=True,
     )
     trainer = fettask.ManualOntoTrainer(
         tc, onto_type_vocab_file, manual_onto_data_files, load_model_file, config.BERT_BASE_MODEL_PATH,
