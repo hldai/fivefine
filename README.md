@@ -1,6 +1,6 @@
 # Fivefine
 
-Source code for paper "From Ultra-fine to Fine: Fine-tuning Ultra-fine Entity Typing to Fine-grained"
+Source code for paper "From Ultra-fine to Fine: Fine-tuning Ultra-fine Entity Typing Models to Fine-grained"
 
 ### Prepare
 
