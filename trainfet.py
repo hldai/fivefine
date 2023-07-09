@@ -71,9 +71,9 @@ def train_onto():
     results = list()
     for i in range(0, 5):
         ali_onto_tdt_data_files['train'] = os.path.join(
-            config.FET_DIR, f'alifet/onto/onto_train_fewshot5_{i}.json')
+            config.FET_DIR, f'alifet/ontonotes/onto_train_fewshot5_{i}.json')
         ali_onto_tdt_data_files['dev'] = os.path.join(
-            config.FET_DIR, f'alifet/onto/onto_dev_fewshot5_{i}.json')
+            config.FET_DIR, f'alifet/ontonotes/onto_dev_fewshot5_{i}.json')
         save_model_file = os.path.join(config.WORK_DIR, f'fet_models/tt_mlm_nw_bert_base_onto_i{i}.pth')
         logging.info(ali_onto_tdt_data_files['train'])
         trainer = fettask.FETModelTrainer(
