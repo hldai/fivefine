@@ -14,6 +14,79 @@ def __setup_logging(to_file):
     logging.info('logging to {}'.format(log_file))
 
 
+def train_bbn():
+    __setup_logging(True)
+
+    ali_bbn_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/bbn/bbn_type_vocab_full.txt')
+    load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base_best.pth')
+    ali_bbn_tdt_data_files = dict()
+
+    dataset_name = 'bbn'
+
+    tc = fettask.TrainConfig(
+        device=device,
+        eval_interval=50,
+        batch_size=48,
+        lr=5e-6,
+        single_path_train=True,
+        n_steps=1000,
+    )
+    results = list()
+    for i in range(0, 5):
+        ali_bbn_tdt_data_files['train'] = os.path.join(
+            config.FET_DIR, f'alifet/bbn/bbn_train_fewshot5_{i}.json')
+        ali_bbn_tdt_data_files['dev'] = os.path.join(
+            config.FET_DIR, f'alifet/bbn/bbn_dev_fewshot5_{i}.json')
+        save_model_file = os.path.join(config.WORK_DIR, f'fet_models/tt_mlm_nw_bert_base_bbn_i{i}.pth')
+        trainer = fettask.FETModelTrainer(
+            tc, ali_bbn_type_vocab_file, dataset_name, ali_bbn_tdt_data_files, load_model_file,
+            config.BERT_BASE_MODEL_PATH, save_model_file=save_model_file)
+        r = trainer.run()
+        if r is not None:
+            results.append(r)
+    if len(results) > 0:
+        for r in results:
+            print(r[0], r[1], r[2])
+
+
+def train_onto():
+    __setup_logging(True)
+
+    ali_onto_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/ontonotes/onto_type_vocab_ali.txt')
+    load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base_best.pth')
+    bert_model_str = config.BERT_BASE_MODEL_PATH
+    ali_onto_tdt_data_files = dict()
+
+    dataset_name = 'onto'
+
+    tc = fettask.TrainConfig(
+        device=device,
+        eval_interval=10,
+        batch_size=48,
+        lr=1e-5,
+        single_path_train=False,
+        n_steps=1000,
+        w_decay=0.01,
+    )
+    results = list()
+    for i in range(0, 5):
+        ali_onto_tdt_data_files['train'] = os.path.join(
+            config.FET_DIR, f'alifet/onto/onto_train_fewshot5_{i}.json')
+        ali_onto_tdt_data_files['dev'] = os.path.join(
+            config.FET_DIR, f'alifet/onto/onto_dev_fewshot5_{i}.json')
+        save_model_file = os.path.join(config.WORK_DIR, f'fet_models/tt_mlm_nw_bert_base_onto_i{i}.pth')
+        logging.info(ali_onto_tdt_data_files['train'])
+        trainer = fettask.FETModelTrainer(
+            tc, ali_onto_type_vocab_file, dataset_name, ali_onto_tdt_data_files, load_model_file,
+            bert_model_str, save_model_file=save_model_file)
+        result = trainer.run()
+        if result is not None:
+            results.append(result)
+    if len(results) > 0:
+        for acc, maf1, mif1 in results:
+            print('{} {} {}'.format(acc, maf1, mif1))
+
+
 def train_fewnerd():
     __setup_logging(True)
 
@@ -83,4 +156,8 @@ if __name__ == '__main__':
     if args.idx == 0:
         train_fewnerd()
     elif args.idx == 1:
+        train_onto()
+    elif args.idx == 2:
+        train_bbn()
+    elif args.idx == 3:
         train_manual_onto()
