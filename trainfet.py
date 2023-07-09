@@ -17,7 +17,7 @@ def __setup_logging(to_file):
 def train_bbn():
     __setup_logging(True)
 
-    ali_bbn_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/bbn/bbn_type_vocab_full.txt')
+    ali_bbn_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/bbn/bbn_type_vocab_ali.txt')
     load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base_best.pth')
     ali_bbn_tdt_data_files = dict()
 

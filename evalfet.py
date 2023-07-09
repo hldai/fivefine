@@ -15,6 +15,38 @@ def print_results(results):
     print('AVG:', mean([r[0] for r in results]), mean([r[1] for r in results]), mean([r[2] for r in results]))
 
 
+def eval_bbn():
+    bbn_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/bbn/bbn_type_vocab_ali.txt')
+    data_file = os.path.join(config.FET_DIR, 'alifet/bbn/bbn_test_ali.json')
+    load_model_files = [
+        os.path.join(config.WORK_DIR, f'fet_models/tt_mlm_nw_bert_base_bbn_i{idx}.pth') for idx in range(0, 5)
+    ]
+    results = list()
+    for load_model_file in load_model_files:
+        predictor = fettask.FETPredictor(
+            device, bbn_type_vocab_file, 'bbn', load_model_file,
+            bert_model_str=config.BERT_BASE_MODEL_PATH, single_path=True)
+        result = predictor.evaluate(data_file)
+        results.append(result)
+    print_results(results)
+
+
+def eval_onto():
+    onto_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/ontonotes/onto_type_vocab_ali.txt')
+    data_file = os.path.join(config.FET_DIR, 'alifet/ontonotes/onto_test_ali.json')
+    load_model_files = [
+        os.path.join(config.WORK_DIR, f'fet_models/tt_mlm_nw_bert_base_onto_i{idx}.pth') for idx in range(0, 5)
+    ]
+    results = list()
+    for load_model_file in load_model_files:
+        predictor = fettask.FETPredictor(
+            device, onto_type_vocab_file, 'onto', load_model_file,
+            bert_model_str=config.BERT_BASE_MODEL_PATH, single_path=True)
+        result = predictor.evaluate(data_file)
+        results.append(result)
+    print_results(results)
+
+
 def eval_fewnerd():
     fewnerd_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/fewnerd/fewnerd_type_vocab.txt')
     data_file = os.path.join(config.FET_DIR, 'alifet/fewnerd/fewnerd_test_ali.json')
@@ -38,3 +70,7 @@ if __name__ == '__main__':
 
     if args.idx == 0:
         eval_fewnerd()
+    if args.idx == 1:
+        eval_onto()
+    if args.idx == 2:
+        eval_bbn()
