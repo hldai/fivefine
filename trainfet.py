@@ -18,7 +18,7 @@ def train_bbn():
     __setup_logging(True)
 
     ali_bbn_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/bbn/bbn_type_vocab_ali.txt')
-    load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base_best.pth')
+    load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base_pretrained.pth')
     ali_bbn_tdt_data_files = dict()
 
     dataset_name = 'bbn'
@@ -53,7 +53,7 @@ def train_onto():
     __setup_logging(True)
 
     ali_onto_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/ontonotes/onto_type_vocab_ali.txt')
-    load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base_best.pth')
+    load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base_pretrained.pth')
     bert_model_str = config.BERT_BASE_MODEL_PATH
     ali_onto_tdt_data_files = dict()
 
@@ -91,7 +91,7 @@ def train_fewnerd():
     __setup_logging(True)
 
     fewnerd_type_vocab_file = os.path.join(config.FET_DIR, 'alifet/fewnerd/fewnerd_type_vocab.txt')
-    load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base_best.pth')
+    load_model_file = os.path.join(config.WORK_DIR, 'uf_models/tt_mlm_nw_bert_base_pretrained.pth')
     save_model_file = None
     bert_model_str = config.BERT_BASE_MODEL_PATH
     fewnerd_tdt_data_files = dict()
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     cuda_device_str = 'cuda' if len(args.d) == 0 else 'cuda:{}'.format(args.d[0])
     device = torch.device(cuda_device_str) if torch.cuda.device_count() > 0 else torch.device('cpu')
     device_ids = args.d
-    utils.init_universal_logging(None)
+    # utils.init_universal_logging(None)
 
     if args.idx == 0:
         train_fewnerd()
