@@ -24,3 +24,7 @@ Source code for paper "From Ultra-fine to Fine: Fine-tuning Ultra-fine Entity Ty
 ### Pre-trained Model
 
 https://drive.google.com/file/d/1z-D1SBvVAF4TFyx_FLuhmqHlqlD2ZN7I/view?usp=sharing
+
+### Details/Errata
+
+For the BBN dataset, we use the version processed by Ren et al. (2016), but we further split its training set into train/dev.
